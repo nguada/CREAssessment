@@ -35,9 +35,13 @@ namespace CRE.RiskAnalysis
             // Defining variables to persist data
             List<AreaEvaluation> dataArea = new List<AreaEvaluation>();
             List<VMHARiskAnalysis> dataVM = new List<VMHARiskAnalysis>();
+            List<ResourceType> dataResource = new List<ResourceType>();
+            List<AssessmentArea> dataAssessmentArea = new List<AssessmentArea>();
+            List<ServiceType> dataService = new List<ServiceType>();
             string _AssessmentId = string.Empty;
             string _WorkFlowId = string.Empty;
             string _ServiceId = string.Empty;
+            decimal _TotalScore = 0.0M;
 
             string requestBody = String.Empty;
             using (StreamReader streamReader =  new  StreamReader(req.Body))
@@ -77,12 +81,12 @@ namespace CRE.RiskAnalysis
                     await conn.OpenAsync().ConfigureAwait(false);
 
                     // Retriving Areas select
-                    var _tSQLArea = System.Environment.GetEnvironmentVariable("T-SQL-RetrieveAreaEvaluation");
+                    var _tSQLAreaEvaluation = System.Environment.GetEnvironmentVariable("T-SQL-RetrieveAreaEvaluation");
 
                     // Logging Reader
                     log.LogInformation($"Function RG_CRE_AssessmentScoreVM is reading Areas of Evaluation");
                     // Executing query for retrieving areas of evaluation
-                    using(SqlCommand comm = new SqlCommand(_tSQLArea, conn))
+                    using(SqlCommand comm = new SqlCommand(_tSQLAreaEvaluation, conn))
                     {
                         
                         using (SqlDataReader reader = comm.ExecuteReader())
@@ -100,6 +104,75 @@ namespace CRE.RiskAnalysis
                             }
                         }
                     }
+
+                    // Retrieve resource types
+                    var _tSQLResources = System.Environment.GetEnvironmentVariable("T-SQL-RetrieveResourceType");
+
+                    // Logging Reader
+                    log.LogInformation($"Function RG_CRE_EvaluationScoreVM is reading Resource Types");
+                    // Executing query for retrieving areas of evaluation
+                    using(SqlCommand comm = new SqlCommand(_tSQLResources, conn))
+                    {
+                        
+                        using (SqlDataReader reader = comm.ExecuteReader())
+                        {
+                            // Reading
+                            while(reader.Read())
+                            {
+                                dataResource.Add(new ResourceType() {
+                                ResourceTypeId = reader.GetValue(0).ToString(),
+                                ServiceTypeId = reader.GetValue(1).ToString(),
+                                ResourceTypeName = reader.GetValue(2).ToString()
+                                });
+                            }
+                        }
+                    }
+
+                    // Retrieve areas
+                    var _tSQLArea = System.Environment.GetEnvironmentVariable("T-SQL-RetrieveAssessmentArea");
+
+                    // Logging Reader
+                    log.LogInformation($"Function RG_CRE_EvaluationScoreVM is reading Area");
+                    // Executing query for retrieving areas of evaluation
+                    using(SqlCommand comm = new SqlCommand(_tSQLArea, conn))
+                    {
+                        
+                        using (SqlDataReader reader = comm.ExecuteReader())
+                        {
+                            // Reading
+                            while(reader.Read())
+                            {
+                                dataAssessmentArea.Add(new AssessmentArea {
+                                AssessmentAreaId = reader.GetValue(0).ToString(),
+                                AssessmentAreaName = reader.GetValue(1).ToString(),
+                                AssessmentAreaDescription = reader.GetValue(2).ToString(),
+                                AssessmentAreaRepresentation = reader.GetValue(3).ToString()
+                                });
+                            }
+                        }
+                    }        
+
+                    // Retrieve services
+                    var _tSQLService = System.Environment.GetEnvironmentVariable("T-SQL-RetrieveServiceType");
+
+                    // Logging Reader
+                    log.LogInformation($"Function RG_CRE_EvaluationScoreVM is reading Services");
+                    // Executing query for retrieving areas of evaluation
+                    using(SqlCommand comm = new SqlCommand(_tSQLService, conn))
+                    {
+                        
+                        using (SqlDataReader reader = comm.ExecuteReader())
+                        {
+                            // Reading
+                            while(reader.Read())
+                            {
+                                dataService.Add(new ServiceType {
+                                ServiceTypeId = reader.GetValue(0).ToString(),
+                                ServiceTypeName = reader.GetValue(1).ToString()
+                                });
+                            }
+                        }
+                    }        
 
                     // Retrieve VMs select
                     var _tSQLVMs = System.Environment.GetEnvironmentVariable("T-SQL-RetrieveVMHARiskAnalysis").ToString().Replace("{P1}", _AssessmentId).Replace("{P2}", _WorkFlowId).Replace("{P3}", _ServiceId);
@@ -255,7 +328,7 @@ namespace CRE.RiskAnalysis
                         {
                             var _value = dataArea.Where(s => s.ResourceAreaEvaluationName == "Dedicated Host Group").Select(s => s.ResourceAreaEvaluationPriority).FirstOrDefault();
                             v_Score += _value;
-                        }
+                        } 
 
                         ///
                         ///PLACEHODER FOR CALCULATING SLA BASED ON STORAGE ACCOUNT AND DISK CONFIGURATION
@@ -266,6 +339,7 @@ namespace CRE.RiskAnalysis
 
                         // Calculate score percentage taking max number of attributes in Area Evaluation
                         decimal _scorePercentage = 1 -(v_Score/Convert.ToDecimal(_maxScore));
+                        _TotalScore += _scorePercentage;
 
                         // Invoking SP
                         _comm.Parameters.Add("AssessmentId", System.Data.SqlDbType.UniqueIdentifier).Value =  new Guid(VM.AssessmentId);
@@ -285,6 +359,25 @@ namespace CRE.RiskAnalysis
                         v_Score = 0;
                         _scorePercentage = 0;
                     }
+                
+                    // Calculating score average for VMs HA
+                    _TotalScore = _TotalScore / dataVM.Count();
+
+                    _comm = new SqlCommand(System.Environment.GetEnvironmentVariable("T-SQL-SP_Insert_AssessementScore"), conn);
+                    _comm.CommandType = System.Data.CommandType.StoredProcedure;
+                    _comm.Parameters.Add("AssessmentId", System.Data.SqlDbType.UniqueIdentifier).Value =  new Guid(_AssessmentId);
+                    _comm.Parameters.Add("AssessmentAreaId", System.Data.SqlDbType.UniqueIdentifier).Value = new Guid(dataAssessmentArea.Where(s => s.AssessmentAreaRepresentation == "HA").Select(s => s.AssessmentAreaId).FirstOrDefault());
+                    _comm.Parameters.Add("ServiceTypeId", System.Data.SqlDbType.UniqueIdentifier).Value = new Guid(dataService.Where(s => s.ServiceTypeName == "Compute").Select(s => s.ServiceTypeId).FirstOrDefault());
+                    _comm.Parameters.Add("ResourceTypeId", System.Data.SqlDbType.UniqueIdentifier).Value = new Guid(dataResource.Where(s => s.ResourceTypeName == "Virtual Machine").Select(s => s.ResourceTypeId).FirstOrDefault());
+                    _comm.Parameters.Add("Assessment_Score", System.Data.SqlDbType.Decimal).Value = _TotalScore;
+
+                    await _comm.ExecuteNonQueryAsync().ConfigureAwait(false);
+
+                    // Cleaning Parameters
+                    _comm.Parameters.Clear();
+
+                    // Cleaning variables
+                    _TotalScore = 0;
                 }
             }
             catch (System.Exception e)
@@ -332,5 +425,25 @@ namespace CRE.RiskAnalysis
          public bool MAB {get; set;}
          public bool DHG_Group {get; set;}
          public decimal Score_Raw {get; set;}
+    }
+
+    public class ResourceType
+    {
+        public string ResourceTypeId { get; set; }
+        public string ServiceTypeId { get; set; }
+        public string ResourceTypeName { get; set; }
+    }
+
+    public class AssessmentArea{
+        public string AssessmentAreaId { get; set; }
+        public string AssessmentAreaName { get; set; }
+        public string AssessmentAreaDescription { get; set; }
+        public string AssessmentAreaRepresentation { get; set; }
+    }
+
+    public class ServiceType{
+        public string ServiceTypeId { get; set; }
+
+        public string ServiceTypeName { get; set; }
     }
 }
