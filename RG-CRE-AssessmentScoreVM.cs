@@ -30,7 +30,7 @@ namespace CRE.RiskAnalysis
             [HttpTrigger(AuthorizationLevel.Function, "post", Route = null)] HttpRequest req, ILogger log)
         {
             // Logging invokation
-            log.LogInformation($"Function RG_CRE_AssessmentScore has been invoked: {System.DateTime.UtcNow.ToString()}");
+            log.LogInformation($"Function RG_CRE_AssessmentScoreVM has been invoked: {System.DateTime.UtcNow.ToString()}");
 
             // Defining variables to persist data
             List<AreaEvaluation> dataArea = new List<AreaEvaluation>();
@@ -46,7 +46,7 @@ namespace CRE.RiskAnalysis
             }
 
             // Reading request body
-            log.LogInformation($"Function RG_CRE_AssessmentScore reading body");
+            log.LogInformation($"Function RG_CRE_AssessmentScoreVM reading body");
 
             if (string.IsNullOrEmpty(requestBody)) 
             { 
@@ -70,7 +70,7 @@ namespace CRE.RiskAnalysis
             {
                 // Connecting to DB
                 // Logging DB
-                log.LogInformation($"Function RG_CRE_AssessmentScore is trying to connect with DB");
+                log.LogInformation($"Function RG_CRE_AssessmentScoreVM is trying to connect with DB");
                 using (SqlConnection conn = new SqlConnection(_ConStr))                
                 {
                     // Open connection
@@ -80,7 +80,7 @@ namespace CRE.RiskAnalysis
                     var _tSQLArea = System.Environment.GetEnvironmentVariable("T-SQL-RetrieveAreaEvaluation");
 
                     // Logging Reader
-                    log.LogInformation($"Function RG_CRE_AssessmentScore is reading Areas of Evaluation");
+                    log.LogInformation($"Function RG_CRE_AssessmentScoreVM is reading Areas of Evaluation");
                     // Executing query for retrieving areas of evaluation
                     using(SqlCommand comm = new SqlCommand(_tSQLArea, conn))
                     {
@@ -105,7 +105,7 @@ namespace CRE.RiskAnalysis
                     var _tSQLVMs = System.Environment.GetEnvironmentVariable("T-SQL-RetrieveVMHARiskAnalysis").ToString().Replace("{P1}", _AssessmentId).Replace("{P2}", _WorkFlowId).Replace("{P3}", _ServiceId);
 
                     // Logging Reader
-                    log.LogInformation($"Function RG_CRE_AssessmentScore is reading VMs");
+                    log.LogInformation($"Function RG_CRE_AssessmentScoreVM is reading VMs");
 
                     // Executing query for retrieving VMs
                     using(SqlCommand comm = new SqlCommand(_tSQLVMs, conn))
@@ -151,7 +151,7 @@ namespace CRE.RiskAnalysis
             try
             {
                 // Logging Reader
-                log.LogInformation($"Function RG_CRE_AssessmentScore is calculating scores for each VM");
+                log.LogInformation($"Function RG_CRE_AssessmentScoreVM is calculating scores for each VM");
 
                 // Invoke SP to update scores
                 using (SqlConnection conn = new SqlConnection(_ConStr))                
@@ -296,10 +296,10 @@ namespace CRE.RiskAnalysis
             }
 
             // Logging Reader
-            log.LogInformation($"Function RG_CRE_AssessmentScore is returning OK. No error found.");
+            log.LogInformation($"Function RG_CRE_AssessmentScoreVM is returning OK. No error found.");
 
             // Returning number of updated resources 
-            return new OkObjectResult($"Function RG_CRE_AssessmentScore is returning OK. Number of updated records: {dataVM.Count}.");
+            return new OkObjectResult($"Function RG_CRE_AssessmentScoreVM is returning OK. Number of updated records: {dataVM.Count}.");
         }
     }
 
