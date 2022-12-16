@@ -238,7 +238,7 @@ namespace CRE.RiskAnalysis
                     _comm.CommandType = System.Data.CommandType.StoredProcedure;
 
                     // Calculating max number of evaluation areas for score percentage
-                    // ADDING A FOOD VALUE AS ADDITIONAL CALCULATIONS MUST BE COMPLETED
+                    // ADDING A FOO VALUE AS ADDITIONAL CALCULATIONS MUST BE COMPLETED
                     //var _maxScore = dataArea.Sum(s => s.ResourceAreaEvaluationPriority);
                     var _maxScore = 24;
 
@@ -440,7 +440,6 @@ namespace CRE.RiskAnalysis
         public string AssessmentAreaDescription { get; set; }
         public string AssessmentAreaRepresentation { get; set; }
     }
-
     public class ServiceType{
         public string ServiceTypeId { get; set; }
 
